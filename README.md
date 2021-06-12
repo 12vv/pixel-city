@@ -9,6 +9,8 @@ Implements to voxelize the image according to the frequency of pixel values and 
 - If the imported image is too large, it will be resized and then calculated to avoid rendering lag.
 - Some pixel values of the image will dominate and cause little difference in the frequency of other pixels when the final range mapping is done, so a maximum pixel value is specified before range mapping.
 
+![screenshot](https://github.com/12vv/12vv.github.io/blob/master/img/pc1.png)
+
 ## Usage
 Need a live server to start.
 Or go to [demo](https://12vv.github.io/projects/pixelcity.html) to try out!
