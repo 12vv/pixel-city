@@ -1,0 +1,528 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>PIXEL CITY</title>
+    <!-- <link href="lib/animate.css" rel="stylesheet" /> -->
+    <style>
+        body,html{ width: 100%; height: 100%;}
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: rgb(1,3,28);
+        }
+
+        .file-upload {
+            width: 300px;
+            position: fixed;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .file-upload-btn {
+            /* width: 100%; */
+            margin: 0;
+            color: #fff;
+            background: #000;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            /* border-bottom: 4px solid #000; */
+            transition: all .2s ease;
+            outline: none;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .file-upload-btn:hover {
+            /* background: #1AA059; */
+            color: #ffffff;
+            transition: all .2s ease;
+            cursor: pointer;
+        }
+
+        .file-upload-btn:active {
+            border: 0;
+            transition: all .2s ease;
+        }
+
+        .file-upload-content {
+            display: none;
+            text-align: center;
+        }
+
+        .file-upload-input {
+            position: absolute;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            outline: none;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .image-upload-wrap {
+            margin-top: 20px;
+            border: 4px dashed #000;
+            position: relative;
+        }
+
+        .image-dropping,
+        .image-upload-wrap:hover {
+            /* background-color: #1FB264; */
+            border: 4px dashed #ffffff;
+        }
+
+        .image-title-wrap {
+            padding: 0 15px 15px 15px;
+            color: #222;
+        }
+
+        .drag-text {
+            text-align: center;
+        }
+
+        .drag-text h3 {
+            font-weight: 100;
+            text-transform: uppercase;
+            /* color: #15824B; */
+            /* padding: 60px 0; */
+        }
+
+        .file-upload-image {
+            max-height: 200px;
+            max-width: 200px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        .remove-image {
+            /* width: 200px; */
+            margin: 0;
+            color: #fff;
+            background: #cd4535;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            border-bottom: 4px solid #b02818;
+            transition: all .2s ease;
+            outline: none;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .remove-image:hover {
+            background: #c13b2a;
+            color: #ffffff;
+            transition: all .2s ease;
+            cursor: pointer;
+        }
+
+        .remove-image:active {
+            border: 0;
+            transition: all .2s ease;
+        }
+
+        div.fixed {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 50px;
+            /*border: 1px solid #000;*/
+        }
+
+        div.fixed img{
+            width: 100%;
+        }
+
+        .descr{
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 50%;
+            padding: 0 20px;
+        }
+
+        .descr a{
+            text-decoration: none;
+            color: black;
+            font-weight: bold;
+        }
+
+    </style>
+
+    <script src="lib/three/three.js"></script>
+    <script src="lib/jquery-3.3.1.min.js"></script>
+    <script src="lib/three/OrbitControls.js"></script>
+    <script type="text/javascript" src="lib/three/EffectComposer.js"></script>
+
+</head>
+<body>
+    <div class="file-upload">
+        <button class="file-upload-btn" type="button" onclick="$('.file-upload-input').trigger( 'click' )">Add Image</button>
+      
+        <div class="image-upload-wrap">
+          <input class="file-upload-input" type='file' onchange="readURL(this);" accept="image/*" />
+          <div class="drag-text">
+            <h3>Drag and drop a file or select add Image</h3>
+          </div>
+        </div>
+        <div class="file-upload-content" id="img_holder">
+          <img id="image" class="file-upload-image" src="#" alt="your image" />
+          <div class="image-title-wrap">
+            <button type="button" onclick="removeUpload()" class="remove-image">Remove <span class="image-title">Uploaded Image</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="descr">
+          <h1>DESCRIPTION</h1>
+          <span><a href="#"> Source Code Here</a></span>
+          <p>
+            Implements to voxelize the image according to the frequency of pixel values and render for 3D interaction using based on WebGL, three.js.
+            <p>1. If the imported image is too large, it will be resized and then calculated to avoid rendering lag.</p>
+            <p>2. Some pixel values of the image will dominate and cause little difference in the frequency of other pixels when the final range mapping is done, so a maximum pixel value is specified before range mapping.</p>
+          </p>
+      </div>
+
+<script>
+
+/****** Settings *********/
+
+const max_freq = 15;
+const resize_to = 200;
+const offset = 0.1;
+
+var scene = new THREE.Scene();
+
+var camera = new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,1000)
+camera.position.set(-1,2,6); 
+camera.lookAt(new THREE.Vector3(50,0,50)); 
+
+var renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setClearColor("#e5e5e5");
+renderer.setSize(window.innerWidth,window.innerHeight);
+
+/*************************/
+
+controls = new THREE.OrbitControls( camera, renderer.domElement );
+
+document.body.appendChild(renderer.domElement);
+
+var raycaster = new THREE.Raycaster();
+var mouse = new THREE.Vector2();
+
+var light = new THREE.PointLight(0xFFFFFF, 3, 100)
+light.position.set(-10,50,25);
+scene.add(light);
+
+
+window.addEventListener('resize', () => {
+    renderer.setSize(window.innerWidth,window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+
+    camera.updateProjectionMatrix();
+})
+
+
+var render = function() {
+    requestAnimationFrame(render);
+    renderer.render(scene, camera);
+}
+
+function onDocumentMouseMove( event ) {
+
+    event.preventDefault();
+
+    if ( isMouseDown ) {
+
+        theta = - ( ( event.clientX - onMouseDownPosition.x ) * 0.5 )
+                + onMouseDownTheta;
+        phi = ( ( event.clientY - onMouseDownPosition.y ) * 0.5 )
+            + onMouseDownPhi;
+
+        phi = Math.min( 180, Math.max( 0, phi ) );
+
+        camera.position.x = radious * Math.sin( theta * Math.PI / 360 )
+                            * Math.cos( phi * Math.PI / 360 );
+        camera.position.y = radious * Math.sin( phi * Math.PI / 360 );
+        camera.position.z = radious * Math.cos( theta * Math.PI / 360 )
+                            * Math.cos( phi * Math.PI / 360 );
+        camera.updateMatrix();
+
+    }
+
+    mouse3D = projector.unprojectVector(
+        new THREE.Vector3(
+            ( event.clientX / renderer.domElement.width ) * 2 - 1,
+            - ( event.clientY / renderer.domElement.height ) * 2 + 1,
+            0.5
+        ),
+        camera
+    );
+
+    ray.direction = mouse3D.subSelf( camera.position ).normalize();
+
+    interact();
+    render();
+
+}
+
+
+function rgbToHex(r, g, b) {
+    r = parseInt(r);
+    g = parseInt(g);
+    b = parseInt(b);
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
+function getIndex(i, j, width){
+    return (i*width + j) * 4;
+}
+
+const scale = (inputY, yRange, xRange) => {
+  const [xMin, xMax] = xRange;
+  const [yMin, yMax] = yRange;
+
+  const percent = (inputY - yMin) / (yMax - yMin);
+  const outputX = percent * (xMax - xMin) + xMin;
+
+  return outputX;
+};
+
+
+function clearMesh(){
+    for (let i = scene.children.length - 1; i >= 0; i--) {
+        if(scene.children[i].type === "Mesh")
+            scene.remove(scene.children[i]);
+    }
+}
+
+
+/* Reference from
+*  https://stackoverflow.com/questions/52059596/loading-an-image-on-web-browser-using-promise/5206080 
+*/
+function loadImage(url) {
+  /*
+   * We are going to return a Promise which, when we .then
+   * will give us an Image that should be fully loaded
+   */
+  return new Promise(resolve => {
+    /*
+     * Create the image that we are going to use to
+     * to hold the resource
+     */
+    const image = new Image();
+    /*
+     * The Image API deals in even listeners and callbacks
+     * we attach a listener for the "load" event which fires
+     * when the Image has finished the network request and
+     * populated the Image with data
+     */
+    image.addEventListener('load', () => {
+      /*
+       * You have to manually tell the Promise that you are
+       * done dealing with asynchronous stuff and you are ready
+       * for it to give anything that attached a callback
+       * through .then a realized value.  We do that by calling
+       * resolve and passing it the realized value
+       */
+      resolve(image);
+    });
+    /*
+     * Setting the Image.src is what starts the networking process
+     * to populate an image.  After you set it, the browser fires
+     * a request to get the resource.  We attached a load listener
+     * which will be called once the request finishes and we have
+     * image data
+     */
+    image.src = url;
+  });
+}
+
+
+
+function analyzeIMG(imgEl) {
+    
+    var blockSize = 1, 
+        defaultRGB = {r:0,g:0,b:0}, 
+        canvas = document.createElement('canvas'),
+        context = canvas.getContext && canvas.getContext('2d'),
+        data, width, height,
+        i = -4,
+        length,
+        rgb = {r:0,g:0,b:0},
+        count = 0;
+
+    var rgbs = new Array();
+    var hexs = new Array();
+        
+    if (!context) {
+        return defaultRGB;
+    }
+    
+    var data;
+    
+    context.drawImage(imgEl, 0, 0);
+
+
+    height = imgEl.height;
+    width = imgEl.width;
+
+
+    try {
+            
+            data = context.getImageData(0, 0, width, height);
+            
+            
+        } catch(e) {
+            //if image is from different domain
+            console.log(e);
+            return defaultRGB;
+        }
+
+
+    const img_data = data.data;
+    length = img_data.length;
+
+    freq = {};
+    var maxVal = 0;
+    
+    while ( (i += blockSize * 4) < length ) {
+        ++count;
+        var hex = rgbToHex(img_data[i], img_data[i+1], img_data[i+2]);
+
+        if(!freq.hasOwnProperty(hex)){
+            freq[hex] = 1;
+        }else{
+            freq[hex] = parseInt(freq[hex]) + 1;
+            if(freq[hex] > max_freq){
+                freq[hex] = max_freq;
+            }
+        }
+
+    }
+
+
+
+    Object.keys(freq).forEach(function (key) { 
+        freq[key] = scale(freq[key], [1,max_freq], [0.1,5]);
+    })
+
+
+
+    var ind = 0;
+
+    console.log(width, height);
+
+    for(var i = 0; i<height;i++) {
+        for(var j = 0; j<width;j++) {
+
+            var index = getIndex(i, j, width);
+            var hex = rgbToHex(data.data[index], data.data[index+1], data.data[index+2]);
+
+            var frequency = freq[hex];
+
+            var geometry = new THREE.BoxGeometry(offset, frequency, offset);
+            var material = new THREE.MeshLambertMaterial({color: hex});
+
+            var mesh = new THREE.Mesh(geometry, material);
+
+            mesh.position.x = j*offset;
+            mesh.position.y = 0;
+            mesh.position.z = i*offset;
+            scene.add(mesh);
+
+            ind++;
+        }
+
+    }
+  
+}
+
+
+render();
+
+function readURL(input) {
+
+    clearMesh();
+
+
+
+  if (input.files && input.files[0]) {
+
+    var reader = new FileReader();
+
+    reader.onload = function(e) {
+        var file = input.files[0];
+
+
+        $('.image-upload-wrap').hide();
+
+        $('.file-upload-image').attr('src', e.target.result);
+
+
+
+        $('.file-upload-content').show();
+
+        $('.image-title').html(input.files[0].name);
+
+            loadImage(e.target.result).then(imgEl => {
+
+
+
+            while (imgEl.width > 200) {
+                imgEl = halfSize(imgEl);
+            }
+
+                analyzeIMG(imgEl);
+            });
+
+    };
+
+    reader.readAsDataURL(input.files[0]);
+
+
+
+  } else {
+    removeUpload();
+  }
+}
+
+function removeUpload() {
+  $('.file-upload-input').replaceWith($('.file-upload-input').clone());
+  $('.file-upload-content').hide();
+  $('.image-upload-wrap').show();
+  clearMesh();
+}
+
+$('.image-upload-wrap').bind('dragover', function () {
+    $('.image-upload-wrap').addClass('image-dropping');
+});
+
+$('.image-upload-wrap').bind('dragleave', function () {
+    $('.image-upload-wrap').removeClass('image-dropping'); 
+});
+
+
+
+/*
+* Extract from https://github.com/nicam/js-resize/blob/master/resize.js
+* Draw initial canvas on new canvas and half it's size
+*/
+var halfSize = function (i) {
+    var canvas = document.createElement("canvas");
+    canvas.width = i.width / 2;
+    canvas.height = i.height / 2;
+    var ctx = canvas.getContext("2d");
+    ctx.drawImage(i, 0, 0, canvas.width, canvas.height);
+    return canvas;
+};
+
+
+</script>
+</body>
+</html>
